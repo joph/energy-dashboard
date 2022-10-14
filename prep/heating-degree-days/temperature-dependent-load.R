@@ -55,9 +55,9 @@ data_prediction <- bind_cols(data_prediction, prediction) %>%
     mutate(diff_fit = value - fit) %>%
     mutate(diff_lwr = value - lwr) %>%
     mutate(diff_upr = value - upr) %>%
-    mutate(diff_fit_rel = 100 * diff_fit/value) %>%
-    mutate(diff_lwr_rel = 100 * diff_lwr/value) %>%
-    mutate(diff_upr_rel = 100 * diff_upr/value) %>%
+    mutate(diff_fit_rel = 100 * diff_fit/prediction) %>%
+    mutate(diff_lwr_rel = 100 * diff_lwr/prediction) %>%
+    mutate(diff_upr_rel = 100 * diff_upr/prediction) %>%
     mutate(diff_fit_cum = cumsum(diff_fit)) %>%
     mutate(diff_lwr_cum = cumsum(diff_lwr)) %>%
     mutate(diff_upr_cum = cumsum(diff_upr)) %>%
@@ -107,21 +107,3 @@ addRollMean(d.all, 7)
 addCum(d.all)
 d.plot <- melt(d.all, id.vars = c("date", "type"))[!is.na(value)]
 dates2PlotDates(d.plot)
-
-#proposal for visualization
-#library(tidyverse)
-d.plot %>%
-    filter(year==2022) %>%
-    filter(variable=="rm7") %>%
-    ggplot(aes(x=day, y=value)) +
-    geom_line(aes(linetype=type)) +
-    theme_bw() +
-    ylim(c(0, 0.5))
-
-
-d.plot %>%
-    spread(type,value) %>%
-    filter(year==2022) %>%
-    mutate(diff=(Beobachtung - `Nachfrage geschätzt mit Klima von 2022\n Modell trainiert auf Daten 2019-2021`)/`Nachfrage geschätzt mit Klima von 2022\n Modell trainiert auf Daten 2019-2021`) %>%
-    ggplot(aes(x=day,y=diff))+
-    geom_line()
