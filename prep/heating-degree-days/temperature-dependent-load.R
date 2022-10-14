@@ -39,31 +39,69 @@ d.agg.aggm.variables <- d.agg.aggm.variables[d.hdd, on = "date"][,.(
 d.agg.aggm.variables <- d.agg.aggm.variables[,':='(hdd_l_10_2=hdd_l_10*hdd_l_10,
                                                    hdd_l_10_log=log(hdd_l_10+0.000001)),]
 
-data_training <- d.agg.aggm.variables[year %in% (2019:(max(year)-1)), , ]
-#data_training <- d.agg.aggm.variables[year %in% c(2019, 2021), , ]
+#data_training <- d.agg.aggm.variables[year %in% (2019:(max(year)-1)), , ]
+data_training <- d.agg.aggm.variables[year %in% c(2019, 2021), , ]
 
-data_prediction <- d.agg.aggm.variables
+data_prediction <- d.agg.aggm.variables %>%
+    filter(year==2022)
 
 linear_model <- lm(value~wday+hdd_s_10+hdd_l_10+week, data=data_training)
 
 summary(linear_model)
 
-data_prediction$prediction <- predict(linear_model, data_prediction)
+prediction <- predict(linear_model, data_prediction, interval="prediction")
 
-d.agg.aggm <- d.agg.aggm[,.(
-    date=as.Date(date),
-    value,
-    type="Beobachtung"
-),]
+data_prediction <- bind_cols(data_prediction, prediction) %>%
+    mutate(diff_fit = value - fit) %>%
+    mutate(diff_lwr = value - lwr) %>%
+    mutate(diff_upr = value - upr) %>%
+    mutate(diff_fit_rel = 100 * diff_fit/value) %>%
+    mutate(diff_lwr_rel = 100 * diff_lwr/value) %>%
+    mutate(diff_upr_rel = 100 * diff_upr/value) %>%
+    mutate(diff_fit_cum = cumsum(diff_fit)) %>%
+    mutate(diff_lwr_cum = cumsum(diff_lwr)) %>%
+    mutate(diff_upr_cum = cumsum(diff_upr)) %>%
+    mutate(value_cum = cumsum(value)) %>%
+    mutate(diff_fit_cum_rel = 100 * diff_fit_cum/value_cum) %>%
+    mutate(diff_lwr_cum_rel = 100 * diff_lwr_cum/value_cum) %>%
+    mutate(diff_upr_cum_rel = 100 * diff_upr_cum/value_cum)
 
-data_prediction <- data_prediction [,.(
-    date,
-    value=prediction,
-    type="Nachfrage geschätzt mit Klima von 2022\n Modell trainiert auf Daten 2019-2021"
-)]
+data_prediction %>%
+    dplyr::select(day, diff_fit_rel, diff_lwr_rel, diff_upr_rel) %>%
+    gather(variable, value, -day) %>%
+    group_by(variable) %>%
+    mutate(value_rolling=rollmean(value, 14, fill=NA, align="right")) %>%
+    ungroup() %>%
+    dplyr::select(day, variable, value_rolling) %>%
+    spread(variable, value_rolling)  %>%
+    ggplot(aes(x=day, y=diff_fit_rel)) +
+    geom_ribbon(aes(ymin=diff_lwr_rel, ymax=diff_upr_rel),fill="gray",alpha=0.3) +
+    geom_line(size=1) +
+    theme_bw()+
+    xlab("Tag (2022)") +
+    ylab("Relative Differenz zwischen \nModellverbrauch und tatsächlichem Verbrauch \n(%, 14 Tage rollierender Durchschnitt)")
+
+
+data_prediction %>%
+    dplyr::select(day, diff_fit_cum_rel, diff_lwr_cum_rel, diff_upr_cum_rel) %>%
+    gather(variable, value, -day) %>%
+    group_by(variable) %>%
+    mutate(value_rolling=rollmean(value, 7, fill=NA, align="right")) %>%
+    ungroup() %>%
+    dplyr::select(day, variable, value_rolling) %>%
+    spread(variable, value_rolling) %>%
+    ggplot(aes(x=day, y=diff_fit_cum_rel)) +
+    geom_ribbon(aes(ymin=diff_lwr_cum_rel, ymax=diff_upr_cum_rel),fill="gray",alpha=0.3) +
+    geom_line(size=1) +
+    theme_bw() +
+    xlab("Tag (2022)") +
+    ylab("Kumulative relative Differenz zwischen \nModellverbrauch und tatsächlichem Verbrauch (% 14 Tage rollierender Durchschnitt)")
+
 
 d.all <- rbindlist(list(d.agg.aggm,
             data_prediction))
+
+
 
 addRollMean(d.all, 7)
 addCum(d.all)
@@ -71,10 +109,19 @@ d.plot <- melt(d.all, id.vars = c("date", "type"))[!is.na(value)]
 dates2PlotDates(d.plot)
 
 #proposal for visualization
-#d.plot %>%
-#    filter(year==2022) %>%
-#    filter(variable=="rm7") %>%
-#    ggplot(aes(x=day, y=value)) +
-#    geom_line(aes(linetype=type)) +
-#    theme_bw()
+#library(tidyverse)
+d.plot %>%
+    filter(year==2022) %>%
+    filter(variable=="rm7") %>%
+    ggplot(aes(x=day, y=value)) +
+    geom_line(aes(linetype=type)) +
+    theme_bw() +
+    ylim(c(0, 0.5))
 
+
+d.plot %>%
+    spread(type,value) %>%
+    filter(year==2022) %>%
+    mutate(diff=(Beobachtung - `Nachfrage geschätzt mit Klima von 2022\n Modell trainiert auf Daten 2019-2021`)/`Nachfrage geschätzt mit Klima von 2022\n Modell trainiert auf Daten 2019-2021`) %>%
+    ggplot(aes(x=day,y=diff))+
+    geom_line()
