@@ -32,7 +32,8 @@ g = list(
         ),
         fileTypes = list(
             generation = "AggregatedGenerationPerType_16.1.B_C",
-            load = "ActualTotalLoad_6.1.A"
+            load = "ActualTotalLoad_6.1.A",
+            transmission = "DayAheadCommercialSchedules_12.1.F"
         )
     ), gie = list(
         params = list()
