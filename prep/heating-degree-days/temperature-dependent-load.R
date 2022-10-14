@@ -95,15 +95,4 @@ data_prediction %>%
     geom_line(size=1) +
     theme_bw() +
     xlab("Tag (2022)") +
-    ylab("Kumulative relative Differenz zwischen \nModellverbrauch und tatsächlichem Verbrauch (% 14 Tage rollierender Durchschnitt)")
-
-
-d.all <- rbindlist(list(d.agg.aggm,
-            data_prediction))
-
-
-
-addRollMean(d.all, 7)
-addCum(d.all)
-d.plot <- melt(d.all, id.vars = c("date", "type"))[!is.na(value)]
-dates2PlotDates(d.plot)
+    ylab("Kumulative relative Differenz zwischen \nModellverbrauch und tatsächlichem Verbrauch \n(% 14 Tage rollierender Durchschnitt)")
