@@ -36,11 +36,8 @@ d.agg.aggm.variables <- d.agg.aggm.variables[d.hdd, on = "date"][,.(
     month=as.character(month(date))
 ),]
 
-d.agg.aggm.variables <- d.agg.aggm.variables[,':='(hdd_l_10_2=hdd_l_10*hdd_l_10,
-                                                   hdd_l_10_log=log(hdd_l_10+0.000001)),]
-
 #data_training <- d.agg.aggm.variables[year %in% (2019:(max(year)-1)), , ]
-data_training <- d.agg.aggm.variables[year %in% c(2019, 2021), , ]
+data_training <- d.agg.aggm.variables[year %in% c(2019:2021), , ]
 
 data_prediction <- d.agg.aggm.variables %>%
     filter(year==2022)
@@ -50,6 +47,7 @@ linear_model <- lm(value~wday+hdd_s_10+hdd_l_10+week, data=data_training)
 summary(linear_model)
 
 prediction <- predict(linear_model, data_prediction, interval="prediction")
+#prediction <- predict(linear_model, data_prediction, interval="confidence")
 
 data_prediction <- bind_cols(data_prediction, prediction) %>%
     mutate(diff_fit = value - fit) %>%
