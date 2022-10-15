@@ -25,19 +25,16 @@ d.agg.aggm.variables <- d.agg.aggm.variables[d.hdd, on = "date"][,.(
     year=year(date),
     day=yday(date),
     wday=ifelse(weekdays(date)%in%c("Saturday","Sunday"),weekdays(date),"Working day"),
-    sinc=sin(2*pi*day/365),
-    cosc=cos(2*pi*day/365),
     value,
     hdd=i.value,
-    hdd2=i.value^2,
     hdd_s_10=ifelse(i.value<10, i.value, 0),
     hdd_l_10=ifelse(i.value>=10, i.value, 0),
     week=as.character(week(date)),
     month=as.character(month(date))
 ),]
 
-#data_training <- d.agg.aggm.variables[year %in% (2019:(max(year)-1)), , ]
-data_training <- d.agg.aggm.variables[year %in% c(2019:2021), , ]
+data_training <- d.agg.aggm.variables[year %in% (2019:(max(year)-1)), , ]
+#data_training <- d.agg.aggm.variables[year %in% c(2019, 2021), , ]
 
 data_prediction <- d.agg.aggm.variables %>%
     filter(year==2022)
