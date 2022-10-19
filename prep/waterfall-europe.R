@@ -1,10 +1,11 @@
 source('load/entsoe/_shared.r')
 # loadPackages()
+library(tidyverse)
 
 
 # - DOIT -----------------------------------------------------------------------
 generation = loadEntsoeComb(
-    type = 'generation', month.start = "2022-07", month.end = "2022-07", check.updates = TRUE
+    type = 'generation', month.start = month.start, month.end = month.end, check.updates = TRUE
     # type = 'generation', month.start = month.start, month.end = month.end
 )
 
@@ -13,19 +14,53 @@ load = loadEntsoeComb(
     # type = 'load', month.start = "2022-08", month.end = month.end, check.updates = FALSE
 )
 
+non_demand_countries <- c("UK CTY",
+                          "BA CTY",
+                          "UA CTY",
+                          "XK CTY",
+                          "SI CTY",
+                          "LU CTY",
+                          "MD CTY",
+                          "IE CTY",
+                          "AL CTY",
+                          "GE CTY",
+                          "MK CTY",
+                          "CY CTY")
+
+available_generation_countries <- c("FI CTY",
+                                    "IT CTY",
+                                    "PL CTY",
+                                    "FR CTY",
+                                    "AT CTY",
+                                    "DE CTY",
+                                    "ES CTY",
+                                    "SE CTY",
+                                    "BE CTY", "NL CTY", "CZ CTY",
+                                    "PT CTY", "SK CTY", "HR CTY",
+                                    "SI CTY", "BG CTY", "RO CTY",
+                                    "LU CTY", "LT CTY", "EE CTY",
+                                    "IE CTY",
+                                    "DK CTY", "GR CTY")
+
+yhour <- function(time) {
+    (yday(time) - 1) * 24 + hour(time)
+}
+
 
 load_eu_cum <- load %>%
     mutate(Year=year(DateTime),Month=month(DateTime),Week=week(DateTime),mDay=day(DateTime),Day=yday(DateTime),Hour=yhour(DateTime)) %>%
     filter(AreaTypeCode=="CTY") %>%
     group_by(AreaName,ResolutionCode,Week,mDay,Day,Month,Year,Hour) %>%
     summarize(Load=mean(TotalLoadValue)) %>%
-    filter(!(AreaName %in% non_demand_countries))
+    filter(!(AreaName %in% non_demand_countries)) %>%
+    ungroup()
 
 
 #######waterfall
 hour_max <- load_eu_cum %>%
     group_by(Year,AreaName) %>%
     summarize(n=n()) %>%
+    ungroup() %>%
     arrange(n) %>%
     filter(Year==max(Year)) %>%
     head(n=1) %>%
@@ -44,7 +79,7 @@ generation_variables<-c("Fossil Brown coal/Lignite",
                         "Wind Onshore")
 
 
-max_hours_generation<-generation %>%
+max_hours_generation <- generation %>%
     filter(AreaName %in% available_generation_countries) %>%
     mutate(Year=year(DateTime)) %>%
     filter(Year==max(Year)) %>%
@@ -115,15 +150,16 @@ final_data <- final_data %>%
 
 
 library(waterfalls)
+library(irenabpdata)
 waterfall(final_data,calc_total=TRUE,
           fill_by_sign = FALSE,
           fill_colours = c("black",rep(COLORS5[4],3),rep(COLORS5[5],5),COLORS5[4])) +
-    theme_bw() +
-    #  ylim(c(1700,2000)) +
+    theme_bw(base_size=16) +
+#    ylim(c(1700,2000)) +
     xlab("") +
     ylab("TWh") +
     theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
-    coord_cartesian(ylim=c(1800, max(final_data$Value)+.025)) +
+    coord_cartesian(ylim=c(2000, max(final_data$Value)+.025)) +
     scale_fill_manual(values = (c("Decrease" = COLORS3[1], "Increase" = COLORS3[2], "Budget" = "black")))
 ggsave("waterfall-electricity.png")
 

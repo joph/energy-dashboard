@@ -41,7 +41,7 @@ loadEntsoeComb = function(
                     l(glue("- exists, no change"), iL=iL+2)
                 } else {
                     l(glue("- downloading ..."), iL=iL+2)
-                    sftp_download(entsoe.filename, tofolder = data.folder, conn, verbose = FALSE)
+                    sftp_download(entsoe.filename, tofolder = data.folder, conn, verbose = FALSE, curl_options = list("StrictHostKeyChecking=no"))
                     d.toc <<- rbind(
                         d.toc[name != entsoe.filename],
                         data.table(name = as.character(entsoe.filename), check = d.files.sel$check)
