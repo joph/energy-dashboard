@@ -87,7 +87,7 @@ d.presentation %>%
     facet_wrap(.~variable, scale="free") +
     theme_bw(base_size=16) +
     xlab("Jahr") +
-    ylab("Relative Veränderung \nzum Durchschnitt 2018-2021 \n(%)")
+    ylab("Relative Veränderung \nzum Durchschnitt 2016-2021 \n(%)")
 
 d.presentation %>%
     filter(year %in% c(2019, 2022)) %>%
