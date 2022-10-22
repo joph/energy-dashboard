@@ -42,6 +42,88 @@ d.comb[, `:=`(
     year_character = as.character(year)
 )]
 
+max.day <- d.comb %>%
+    filter(year==2022) %>%
+    summarize(max.day=max(day)) %>%
+    unlist()
+
+cut_off_year <- 2015
+
+d.presentation <- d.comb %>%
+    filter(day<=max.day) %>%
+    mutate(month=month(date)) %>%
+    dplyr::select(year, month, value, hdd) %>%
+    filter(year > cut_off_year)
+
+nmb_years <- d.comb %>%
+    filter(year > cut_off_year) %>%
+    dplyr::select(year) %>%
+    unique() %>%
+    unlist() %>%
+    length() - 1
+
+d.presentation.mean.year <- d.presentation %>%
+    filter(year!=2022) %>%
+    summarize(value.sum.mean=sum(value)/nmb_years,
+              hdd.sum.mean=sum(hdd)/nmb_years)
+
+d.presentation.mean.month <- d.presentation %>%
+    filter(year!=2022) %>%
+    group_by(month) %>%
+    summarize(value.sum.mean=sum(value)/nmb_years,
+              hdd.sum.mean=sum(hdd)/nmb_years)
+
+d.presentation %>%
+    group_by(year) %>%
+    summarize(value.sum=sum(value),hdd.sum=sum(hdd)) %>%
+    bind_cols(d.presentation.mean.year) %>%
+    mutate(value.sum.rel=100*value.sum/value.sum.mean-100) %>%
+    mutate(hdd.sum.rel=100*hdd.sum/hdd.sum.mean-100) %>%
+    dplyr::select(year,value.sum.rel,hdd.sum.rel) %>%
+    gather(variable,value,-year) %>%
+    mutate(variable=ifelse(variable=="hdd.sum.rel","Heizgradtage","Gasverbrauch")) %>%
+    ggplot(aes(x=year, y=value)) +
+    geom_bar(stat="identity") +
+    facet_wrap(.~variable, scale="free") +
+    theme_bw(base_size=16) +
+    xlab("Jahr") +
+    ylab("Relative Veränderung \nzum Durchschnitt 2018-2021 \n(%)")
+
+d.presentation %>%
+    filter(year %in% c(2019, 2022)) %>%
+    group_by(year,month) %>%
+    summarize(value.sum=sum(value),hdd.sum=sum(hdd)) %>%
+    full_join(d.presentation.mean.month,by=c("month"="month")) %>%
+    mutate(value.sum.rel=100*value.sum/value.sum.mean-100) %>%
+    mutate(hdd.sum.rel=100*hdd.sum/hdd.sum.mean-100) %>%
+    dplyr::select(year,month,value.sum.rel,hdd.sum.rel) %>%
+    gather(variable,value,-year,-month) %>%
+    mutate(variable=ifelse(variable=="hdd.sum.rel","Heizgradtage","Gasverbrauch")) %>%
+    mutate(Jahr=as.character(year)) %>%
+    mutate(month=as.numeric(month)) %>%
+    ggplot(aes(x=month, y=value)) +
+    geom_line(aes(col=Jahr),size=1) +
+    scale_color_manual(values=rev(COLORS5)) +
+    facet_grid(variable~.,scale="free") +
+    theme_bw(base_size=16) +
+    xlab("Monat") +
+    ylab("Relative Veränderung zum Durchschnitt 2018-2021") +
+    scale_x_continuous(breaks=c(1:10))
+
+d.comb %>%
+    filter(year>2018) %>%
+    mutate(Temperaturkategorie=ifelse(temp<15,"<15°C",">15°C")) %>%
+    ggplot(aes(x=temp, y=value)) +
+    geom_point(aes(col=Temperaturkategorie),alpha=0.1) +
+    geom_smooth(method="lm",aes(col=Temperaturkategorie)) +
+    scale_color_manual(values=COLORS5) +
+    xlab("Bevölkerungsgewichtete durchschnittstemperatur in Österreich (°C)") +
+    ylab("Täglicher Gasverbrauch (TWh)") +
+    theme_bw() +
+    facet_wrap(.~year)
+
+
+
 #add holidays (feiertage) and holidays (ferien)
 holidays = list()
 for(year in 2014:2022){
@@ -95,10 +177,18 @@ train_and_test_model <- function(years){
 
     d.pred[, prediction := predict(m.linear, d.pred)]
 
-    d.pred %>% ggplot(aes(x=value, y=prediction)) +
+    p <-d.pred %>%
+        filter(year==2022) %>%
+        filter(month(date)>8) %>%
+        ggplot(aes(x=prediction, y=value)) +
         geom_point(alpha=0.5, size=0.5) +
         geom_smooth(method="lm", size=1, col="red") +
-        facet_wrap(.~year)
+        facet_wrap(.~year) +
+        ylab("Tatsächlicher Verbrauch") +
+        xlab("Vorhergesagter Verbrauch") +
+        theme_bw()
+
+    plot(p)
 
     rmse <- function(observed, predicted){
         sqrt(mean((observed - predicted)^2))
@@ -112,14 +202,81 @@ train_and_test_model <- function(years){
         print()
 
     p <- d.pred %>%
+        filter(year==2022) %>%
         dplyr::select(year, day, value, prediction) %>%
         gather(variable, value, -year, -day) %>%
         mutate(value = rollmean(value, 14, na.pad = TRUE, "left")) %>%
+        mutate(variable = ifelse(variable=="prediction", "Simulation", "Beobachtung")) %>%
         ggplot(aes(x=day, y=value)) +
         geom_line(aes(col=variable)) +
-        facet_wrap(.~year)
+        facet_wrap(.~year) +
+        theme_bw()+
+        scale_color_manual(values=COLORS3) +
+        xlab("Tag") +
+        ylab("Verbrauch (TWh)")
+
 
     plot(p)
+
+
+
+    p <- d.pred %>%
+        filter(year==2022) %>%
+        dplyr::select(year, day, value, prediction) %>%
+        mutate(Einsparung=100*(value-prediction)/prediction) %>%
+        mutate(Einsparung = rollmean(Einsparung, 14, na.pad = TRUE, "left")) %>%
+        ggplot(aes(x=day, y=Einsparung)) +
+        geom_line() +
+        facet_wrap(.~year) +
+        theme_bw()+
+        scale_color_manual(values=COLORS3) +
+        xlab("Tag") +
+        ylab("Relative Einsparung (%)")
+
+
+    plot(p)
+
+
+    mean.value <- d.train %>%
+        group_by(day) %>%
+        summarize(`Durchschnitt 2016-2021`=mean(value)) %>%
+        filter(day<=max.day) %>%
+        dplyr::select(`Durchschnitt 2016-2021`)
+
+
+    d.pred %>%
+        filter(year==2022) %>%
+        bind_cols(mean.value) %>%
+        dplyr::select(day, value, Simulation=prediction, `Durchschnitt 2016-2021`) %>%
+        gather(variable, value_sim, -day, -value) %>%
+        mutate(Einsparung=100*(value-value_sim)/value_sim) %>%
+        mutate(Einsparung = rollmean(Einsparung, 14, na.pad = TRUE, "left")) %>%
+        ggplot(aes(x=day, y=Einsparung)) +
+        geom_line(aes(col=variable)) +
+        theme_bw()+
+        scale_color_manual(values=COLORS3) +
+        xlab("Tag") +
+        ylab("Relative Einsparung (%)")
+
+
+    plot(p)
+
+    d.pred %>%
+        filter(year==2022) %>%
+        bind_cols(mean.value) %>%
+        dplyr::select(day, value, Simulation=prediction, `Durchschnitt 2016-2021`) %>%
+        gather(variable, value_sim, -day, -value) %>%
+        group_by(variable) %>%
+        summarize(sim=sum(value_sim),value=sum(value),Einsparung=100*(value-sim)/sim) %>%
+        ggplot(aes(x=variable,y=Einsparung)) +
+        geom_bar(stat="identity") +
+        theme_bw() +
+        xlab("Variable") +
+        ylab("Relative Einsparung 2022 vs. Periode 2016-2021 (%)")
+
+
+
+
 }
 
 years = c(2016:2018, 2019:2021)
