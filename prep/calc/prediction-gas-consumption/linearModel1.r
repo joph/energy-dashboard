@@ -74,6 +74,7 @@ d.presentation.mean.month <- d.presentation %>%
               hdd.sum.mean=sum(hdd)/nmb_years)
 
 d.presentation %>%
+    filter(year>2017) %>%
     group_by(year) %>%
     summarize(value.sum=sum(value),hdd.sum=sum(hdd)) %>%
     bind_cols(d.presentation.mean.year) %>%
